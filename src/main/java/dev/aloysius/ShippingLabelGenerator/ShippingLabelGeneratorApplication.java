@@ -14,16 +14,4 @@ public class ShippingLabelGeneratorApplication {
 		SpringApplication.run(ShippingLabelGeneratorApplication.class, args);
 	}
 
-	@Bean
-	public RestClient restClient(){
-		return RestClient.create();
-	}
-
-//	@Bean
-//	CommandLineRunner commandLineRunner(ShipmentController controller){
-//		return args -> {
-//			controller.testApi();
-//		};
-//	}
-
 }

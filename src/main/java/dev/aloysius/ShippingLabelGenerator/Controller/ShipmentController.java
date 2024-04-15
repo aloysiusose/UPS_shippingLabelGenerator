@@ -1,16 +1,11 @@
 package dev.aloysius.ShippingLabelGenerator.Controller;
 
-import dev.aloysius.ShippingLabelGenerator.Domain.RequestObject;
-import dev.aloysius.ShippingLabelGenerator.Domain.ResponseObject;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.net.URI;
@@ -21,17 +16,13 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.stream.Collectors;
-
-import static org.springframework.http.MediaType.APPLICATION_JSON;
 @RestController
 @RequestMapping("/api/v1/ship")
 public class ShipmentController {
 
-    private final RestClient restClient;
     private final OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager;
 
-    public ShipmentController(RestClient restClient, OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager) {
-        this.restClient = restClient;
+    public ShipmentController( OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager) {
         this.oAuth2AuthorizedClientManager = oAuth2AuthorizedClientManager;
     }
 
@@ -39,14 +30,6 @@ public class ShipmentController {
     public void getShipment() throws IOException, InterruptedException {
         testApi();
 
-//        ResponseEntity<ResponseObject> entity = restClient.post()
-//                .uri("https://wwwcie.ups.com/api/shipments/v2403/ship")
-//                .headers(c -> c.setBearerAuth(this.getToken()))
-//                .contentType(APPLICATION_JSON)
-//                .body(HttpRequest.BodyPublishers.ofString(object.toString()))
-//                .retrieve()
-//                .toEntity(ResponseObject.class);
-//        return entity.getBody();
     }
 
     private String getToken(){
@@ -133,7 +116,7 @@ public class ShipmentController {
                 , "    \"ShipmentCharge\": {"
                 , "     \"Type\": \"01\","
                 , "     \"BillShipper\": {"
-                , "      \"AccountNumber\": \" \""
+                , "      \"AccountNumber\": \" 7RY946\""
                 , "     }"
                 , "    }"
                 , "   },"
