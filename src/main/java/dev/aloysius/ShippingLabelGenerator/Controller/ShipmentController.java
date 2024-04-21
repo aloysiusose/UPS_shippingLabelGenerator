@@ -1,5 +1,9 @@
 package dev.aloysius.ShippingLabelGenerator.Controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
@@ -7,18 +11,20 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.IOException;
+import java.io.*;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/ship")
 public class ShipmentController {
+    public static final String CLIENT_ID = System.getenv("CLIENT_ID");
 
     private final OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager;
 
@@ -26,15 +32,37 @@ public class ShipmentController {
         this.oAuth2AuthorizedClientManager = oAuth2AuthorizedClientManager;
     }
 
-    @PostMapping("/")
+    @PostMapping("/standard")
     public void getShipment() throws IOException, InterruptedException {
-        testApi();
+        standardShippingApi();
+
+    }
+    @PostMapping("/third-party")
+    public void getShipmentThirdParty() throws IOException, InterruptedException {
+        thirdPartyBilling();
+
+    }
+    public String printAsJson(String str) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+        Object jsonObject = mapper.readValue(str, Object.class);
+        return mapper.writeValueAsString(jsonObject);
+    }
+    public String extractImageValue(String str) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+
+        JsonNode rootNode = mapper.readTree(str);
+        JsonNode packageResults = rootNode.path("ShipmentResponse").path("ShipmentResults").get("PackageResults");
+        String val = null;
+        for (JsonNode pack : packageResults){
+            val = pack.path("ShippingLabel").get("GraphicImage").asText();
+        }
+        return val;
 
     }
 
     private String getToken(){
         OAuth2AuthorizeRequest re = OAuth2AuthorizeRequest.withClientRegistrationId("ups")
-                .principal("fAsQ0NN0uvBB8kk5VhC1fo4aXApXAZYIsV1TvfkcVxGFBPAq")
+                .principal(CLIENT_ID)
                 .build();
 
         OAuth2AuthorizedClient authorize = oAuth2AuthorizedClientManager.authorize(re);
@@ -43,7 +71,8 @@ public class ShipmentController {
         System.out.println(tokenValue);
         return tokenValue;
     }
-    public void testApi() throws IOException, InterruptedException {
+    public void standardShippingApi() throws IOException, InterruptedException {
+        PrintWriter writer = new PrintWriter(new FileWriter("Shipment_label.js"));
         var httpClient = HttpClient.newBuilder().build();
 
         var payload = String.join("\n"
@@ -66,7 +95,7 @@ public class ShipmentController {
                 , "     \"Number\": \"1115554758\","
                 , "     \"Extension\": \" \""
                 , "    },"
-                , "    \"ShipperNumber\": \" \","
+                , "    \"ShipperNumber\": \"AV6010 \","
                 , "    \"FaxNumber\": \"8002222222\","
                 , "    \"Address\": {"
                 , "     \"AddressLine\": ["
@@ -116,7 +145,7 @@ public class ShipmentController {
                 , "    \"ShipmentCharge\": {"
                 , "     \"Type\": \"01\","
                 , "     \"BillShipper\": {"
-                , "      \"AccountNumber\": \" 7RY946\""
+                , "      \"AccountNumber\": \" AV6010\""
                 , "     }"
                 , "    }"
                 , "   },"
@@ -179,7 +208,228 @@ public class ShipmentController {
                 .build();
 
         var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        String s = printAsJson(response.body());
+        writer.write(request.headers().toString());
+        writer.println();
+        writer.write("The Response to this api");
+        writer.write(s);
+
+        writer.close();
+        String s1 = extractImageValue(response.body());
+        //i need to so a base64 decoding of this string
+        try{
+            System.out.println(s1);
+            byte[] imageBytes = Base64.getDecoder().decode(s1);
+             FileOutputStream fos = new FileOutputStream("Shipping_label.jpg");
+             fos.write(imageBytes);
+             fos.close();
+
+        }catch (Exception e){
+            e.printStackTrace();
+        }
 
         System.out.println(response.body());
     }
+    public void thirdPartyBilling() throws IOException, InterruptedException {
+        PrintWriter writer = new PrintWriter(new FileWriter("Shipment_label.js"));
+        var httpClient = HttpClient.newBuilder().build();
+
+        var payload = String.join("\n"
+                , "{"
+                , " \"ShipmentRequest\": {"
+                , "  \"Request\": {"
+                , "   \"RequestOption\": \"nonvalidate\","
+                , "   \"SubVersion\": \"1901\","
+                , "   \"TransactionReference\": {"
+                , "    \"CustomerContext\": \"\""
+                , "   }"
+                , "  },"
+                , "  \"Shipment\": {"
+                , "   \"Description\": \"Payments\","
+                , "   \"Shipper\": {"
+                , "    \"Name\": \"Shipper_name\","
+                , "    \"AttentionName\": \"Shipper_name\","
+                , "    \"CompanyDisplayableName\": \"Shipper_name\","
+                , "    \"Phone\": {"
+                , "     \"Number\": \"1234567890\","
+                , "     \"Extension\": \"1234\""
+                , "    },"
+                , "    \"ShipperNumber\": \" \","
+                , "    \"FaxNumber\": \"1234\","
+                , "    \"EMailAddress\": \" \","
+                , "    \"Address\": {"
+                , "     \"AddressLine\": ["
+                , "      \"ShipperAddress\","
+                , "      \"ShipperAddress\","
+                , "      \"ShipperAddress\""
+                , "     ],"
+                , "     \"City\": \"01-222 Warszawa\","
+                , "     \"StateProvinceCode\": \"GA\","
+                , "     \"PostalCode\": \"1222\","
+                , "     \"CountryCode\": \"PL\""
+                , "    }"
+                , "   },"
+                , "   \"ShipTo\": {"
+                , "    \"Name\": \"ShipToName\","
+                , "    \"AttentionName\": \"ShipToName\","
+                , "    \"CompanyDisplayableName\": \"ShipToName\","
+                , "    \"Phone\": {"
+                , "     \"Number\": \"1234567890\","
+                , "     \"Extension\": \"1234\""
+                , "    },"
+                , "    \"FaxNumber\": \"1234\","
+                , "    \"EMailAddress\": \" \","
+                , "    \"Address\": {"
+                , "     \"AddressLine\": ["
+                , "      \"ShipToAddress\","
+                , "      \"ShipToAddress\","
+                , "      \"ShipToAddress\""
+                , "     ],"
+                , "     \"City\": \"01-222 Warszawa\","
+                , "     \"StateProvinceCode\": \"GA\","
+                , "     \"PostalCode\": \"1222\","
+                , "     \"CountryCode\": \"PL\""
+                , "    }"
+                , "   },"
+                , "   \"ShipFrom\": {"
+                , "    \"Name\": \"ShipFromName\","
+                , "    \"AttentionName\": \"ShipFromName\","
+                , "    \"CompanyDisplayableName\": \"ShipFromName\","
+                , "    \"TaxIdentificationNumber\": \"1234\","
+                , "    \"TaxIDType\": {"
+                , "     \"Code\": \"EIN\","
+                , "     \"Description\": \"EIN\""
+                , "    },"
+                , "    \"Phone\": {"
+                , "     \"Number\": \"1234567890\","
+                , "     \"Extension\": \"1234\""
+                , "    },"
+                , "    \"ShipFromAccountNumber\": \" \","
+                , "    \"FaxNumber\": \"1234\","
+                , "    \"Address\": {"
+                , "     \"AddressLine\": ["
+                , "      \"ShipFromAddress\","
+                , "      \"ShipFromAddress\","
+                , "      \"ShipFromAddress\""
+                , "     ],"
+                , "     \"City\": \"01-222 Warszawa\","
+                , "     \"StateProvinceCode\": \"GA\","
+                , "     \"PostalCode\": \"1222\","
+                , "     \"CountryCode\": \"PL\""
+                , "    },"
+                , "    \"EMailAddress\": \" \""
+                , "   },"
+                , "   \"PaymentInformation\": {"
+                , "    \"ShipmentCharge\": {"
+                , "     \"Type\": \"01\","
+                , "     \"BillThirdParty\": {"
+                , "      \"AccountNumber\": \" \","
+                , "      \"Name\": \" \","
+                , "      \"AttentionName\": \" \","
+                , "      \"VatTaxID\": \"1234AB\","
+                , "      \"TaxIDType\": \"01\","
+                , "      \"CertifiedElectronicMail\": \"abc@123.123\","
+                , "      \"InterchangeSystemCode\": \"SDI\","
+                , "      \"SuppressPrintInvoiceIndicator\": \" \","
+                , "      \"Address\": {"
+                , "       \"PostalCode\": \"30005\","
+                , "       \"CountryCode\": \"US\""
+                , "      }"
+                , "     }"
+                , "    }"
+                , "   },"
+                , "   \"Service\": {"
+                , "    \"Code\": \"011\","
+                , "    \"Description\": \"Standard\""
+                , "   },"
+                , "   \"InvoiceLineTotal\": {"
+                , "    \"CurrencyCode\": \"USD\","
+                , "    \"MonetaryValue\": \"10\""
+                , "   },"
+                , "   \"NumOfPiecesInShipment\": \"1\","
+                , "   \"USPSEndorsement\": \"5\","
+                , "   \"CostCenter\": \"123\","
+                , "   \"PackageID\": \"1\","
+                , "   \"InformationSourceCode\": \"A3\","
+                , "   \"ShipmentServiceOptions\": \"            \","
+                , "   \"Package\": {"
+                , "    \"Description\": \"IF\","
+                , "    \"NumOfPieces\": \"10\","
+                , "    \"Packaging\": {"
+                , "     \"Code\": \"02\","
+                , "     \"Description\": \"desc\""
+                , "    },"
+                , "    \"Dimensions\": {"
+                , "     \"UnitOfMeasurement\": {"
+                , "      \"Code\": \"CM\","
+                , "      \"Description\": \"CM\""
+                , "     },"
+                , "     \"Length\": \"2\","
+                , "     \"Width\": \"2\","
+                , "     \"Height\": \"3\""
+                , "    },"
+                , "    \"PackageWeight\": {"
+                , "     \"UnitOfMeasurement\": {"
+                , "      \"Code\": \"KGS\","
+                , "      \"Description\": \"LBS\""
+                , "     },"
+                , "     \"Weight\": \"50\""
+                , "    }"
+                , "   }"
+                , "  },"
+                , "  \"LabelSpecification\": {"
+                , "   \"LabelImageFormat\": {"
+                , "    \"Code\": \"GIF\","
+                , "    \"Description\": \"GIF\""
+                , "   }"
+                , "  }"
+                , " }"
+                , "}"
+        );
+
+        HashMap<String, String> params = new HashMap<>();
+        params.put("additionaladdressvalidation", "string");
+
+        var query = params.keySet().stream()
+                .map(key -> key + "=" + URLEncoder.encode(params.get(key), StandardCharsets.UTF_8))
+                .collect(Collectors.joining("&"));
+
+        var host = "https://wwwcie.ups.com";
+        var version = "YOUR_version_PARAMETER";
+        var pathname = "/api/shipments/" + version + "/ship";
+        var request = HttpRequest.newBuilder()
+                .POST(HttpRequest.BodyPublishers.ofString(payload))
+                .uri(URI.create(host + pathname + '?' + query))
+                .header("Content-Type", "application/json")
+                .header("transId", "string")
+                .header("transactionSrc", "testing")
+                .header("Authorization", "Bearer "+getToken())
+                .build();
+
+        var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        System.out.println(response.body());
+        String s = printAsJson(response.body());
+        writer.write(request.headers().toString());
+        writer.println();
+        writer.write("The Response to this api");
+        writer.write(s);
+
+        writer.close();
+        String s1 = extractImageValue(response.body());
+        //i need to so a base64 decoding of this string
+        try{
+            System.out.println(s1);
+            byte[] imageBytes = Base64.getDecoder().decode(s1);
+            FileOutputStream fos = new FileOutputStream("Shipping_label.jpg");
+            fos.write(imageBytes);
+            fos.close();
+
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+        System.out.println(response.body());
+    }
+
 }

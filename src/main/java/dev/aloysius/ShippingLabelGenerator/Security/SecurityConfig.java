@@ -18,6 +18,10 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig {
 
+    public static final String CLIENT_ID = System.getenv("CLIENT_ID");
+    public static final String CLIENT_SECRET = System.getenv("CLIENT_SECRET");
+    public static final String TOKEN_URL = "https://wwwcie.ups.com/security/v1/oauth/token";
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity.csrf(AbstractHttpConfigurer::disable).cors(AbstractHttpConfigurer::disable);
@@ -44,13 +48,14 @@ public class SecurityConfig {
     }
 
     @Bean
+
     public ClientRegistrationRepository clientRegistrationRepository() {
         ClientRegistration c1 = ClientRegistration.withRegistrationId("ups")
-                .clientId("fAsQ0NN0uvBB8kk5VhC1fo4aXApXAZYIsV1TvfkcVxGFBPAq")
-                .clientSecret("Ne1FZwELq0dUGv2Sw1QR1kTTtUGzxoCpMVALYOiCWwc6hsI1EggKJXg14zKBVul3")
+                .clientId(CLIENT_ID)
+                .clientSecret(CLIENT_SECRET)
                 .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .tokenUri("https://wwwcie.ups.com/security/v1/oauth/token")
+                .tokenUri(TOKEN_URL)
                 .build();
 
         InMemoryClientRegistrationRepository clientRegistrationRepository =
