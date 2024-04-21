@@ -5,6 +5,9 @@ This Application has been built with SpringBoot 3.2.4 with key libraries as foll
 2. Spring OAuth2 Client for security and configuring OAuth2 work flows
 
 ## How to use this Program
+This code base can be used as an embedded code or a standalone web server. Since the Shipment API requires a JSON payload that describes the request, a payload has been constructed so that it can accept details of the shipment which are not limited to payment, packaging, description, address etc. some of this data can be made constant and others variable so as to represent the correct detail submitted when a package is scanned for shipment.
+
+Once this is done, a request is sent to the UPS shipment api adding the authorization token as a header and a response gotten. Then the shipping label is extracted from the response and then sent to a thermal printer for printing
 ### Must Haves
 1. A code Editor or an IDE
 2. latest JDK or version 11 at least
