@@ -4,9 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,8 +20,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/ship")
@@ -42,10 +46,26 @@ public class ShipmentController {
         thirdPartyBilling();
 
     }
+    @GetMapping("/")
+    public void getMultiPieceShipping() throws IOException, InterruptedException {
+        multiPieceShipping();
+    }
     public String printAsJson(String str) throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
         Object jsonObject = mapper.readValue(str, Object.class);
         return mapper.writeValueAsString(jsonObject);
+    }
+    public static List<String> extractImageValues(String str) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+
+        JsonNode rootNode = mapper.readTree(str);
+        JsonNode packageResults = rootNode.path("ShipmentResponse").path("ShipmentResults").get("PackageResults");
+        List<String> val = new ArrayList<>();
+        for (JsonNode pack : packageResults){
+            val.add(pack.path("ShippingLabel").get("GraphicImage").asText());
+        }
+        return val;
+
     }
     public String extractImageValue(String str) throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
@@ -59,7 +79,18 @@ public class ShipmentController {
         return val;
 
     }
+    public String extractTrackingNumber(String str) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
 
+        JsonNode rootNode = mapper.readTree(str);
+        JsonNode packageResults = rootNode.path("ShipmentResponse").path("ShipmentResults").get("PackageResults");
+        String val = null;
+        for (JsonNode pack : packageResults){
+            val = pack.get("TrackingNumber").asText();
+        }
+        return val;
+    }
+    @Cacheable("token")
     private String getToken(){
         OAuth2AuthorizeRequest re = OAuth2AuthorizeRequest.withClientRegistrationId("ups")
                 .principal(CLIENT_ID)
@@ -216,6 +247,8 @@ public class ShipmentController {
 
         writer.close();
         String s1 = extractImageValue(response.body());
+        String s2 = extractTrackingNumber(response.body());
+        System.out.println(s2);
         //i need to so a base64 decoding of this string
         try{
             System.out.println(s1);
@@ -431,5 +464,218 @@ public class ShipmentController {
 
         System.out.println(response.body());
     }
+    public void multiPieceShipping() throws IOException, InterruptedException {
+        PrintWriter writer = new PrintWriter(new FileWriter("multi-Shipment_label.js"));
+        var httpClient = HttpClient.newBuilder().build();
 
+        var payload = String.join("\n"
+                , "{"
+                , " \"ShipmentRequest\": {"
+                , "  \"Request\": {"
+                , "   \"RequestOption\": \"nonvalidate\","
+                , "   \"SubVersion\": \"1701\","
+                , "   \"TransactionReference\": {"
+                , "    \"CustomerContext\": \"\""
+                , "   }"
+                , "  },"
+                , "  \"Shipment\": {"
+                , "   \"Package\": ["
+                , "    {"
+                , "     \"PackageWeight\": {"
+                , "      \"Weight\": \"50\","
+                , "      \"UnitOfMeasurement\": {"
+                , "       \"Description\": \"desc\","
+                , "       \"Code\": \"LBS\""
+                , "      }"
+                , "     },"
+                , "     \"Dimensions\": {"
+                , "      \"Height\": \"2\","
+                , "      \"Width\": \"2\","
+                , "      \"Length\": \"02\","
+                , "      \"UnitOfMeasurement\": {"
+                , "       \"Description\": \"desc\","
+                , "       \"Code\": \"IN\""
+                , "      }"
+                , "     },"
+                , "     \"Packaging\": {"
+                , "      \"Description\": \"desc\","
+                , "      \"Code\": \"02\""
+                , "     },"
+                , "     \"Description\": \"desc\""
+                , "    },"
+                , "    {"
+                , "     \"PackageWeight\": {"
+                , "      \"Weight\": \"50\","
+                , "      \"UnitOfMeasurement\": {"
+                , "       \"Description\": \"desc\","
+                , "       \"Code\": \"LBS\""
+                , "      }"
+                , "     },"
+                , "     \"Dimensions\": {"
+                , "      \"Height\": \"2\","
+                , "      \"Width\": \"2\","
+                , "      \"Length\": \"02\","
+                , "      \"UnitOfMeasurement\": {"
+                , "       \"Description\": \"desc\","
+                , "       \"Code\": \"IN\""
+                , "      }"
+                , "     },"
+                , "     \"Packaging\": {"
+                , "      \"Description\": \"desc\","
+                , "      \"Code\": \"02\""
+                , "     },"
+                , "     \"Description\": \"desc\""
+                , "    },"
+                , "    {"
+                , "     \"Description\": \"desc\","
+                , "     \"Packaging\": {"
+                , "      \"Code\": \"02\","
+                , "      \"Description\": \"desc\""
+                , "     },"
+                , "     \"Dimensions\": {"
+                , "      \"UnitOfMeasurement\": {"
+                , "       \"Code\": \"IN\","
+                , "       \"Description\": \"desc\""
+                , "      },"
+                , "      \"Length\": \"02\","
+                , "      \"Width\": \"2\","
+                , "      \"Height\": \"2\""
+                , "     },"
+                , "     \"PackageWeight\": {"
+                , "      \"UnitOfMeasurement\": {"
+                , "       \"Code\": \"LBS\","
+                , "       \"Description\": \"desc\""
+                , "      },"
+                , "      \"Weight\": \"50\""
+                , "     }"
+                , "    }"
+                , "   ],"
+                , "   \"Description\": \"UPS Premier\","
+                , "   \"Shipper\": {"
+                , "    \"Name\": \"ShipperName\","
+                , "    \"AttentionName\": \"GA\","
+                , "    \"CompanyDisplayableName\": \"GA\","
+                , "    \"TaxIdentificationNumber\": \"12345\","
+                , "    \"Phone\": {"
+                , "     \"Number\": \"1234567890\","
+                , "     \"Extension\": \"12\""
+                , "    },"
+                , "    \"ShipperNumber\": \"AV6010\","
+                , "    \"FaxNumber\": \"2134\","
+                , "    \"EMailAddress\": \" \","
+                , "    \"Address\": {"
+                , "     \"AddressLine\": ["
+                , "      \"address\""
+                , "     ],"
+                , "     \"City\": \"Alpharetta\","
+                , "     \"StateProvinceCode\": \"GA\","
+                , "     \"PostalCode\": \"30005\","
+                , "     \"CountryCode\": \"US\""
+                , "    }"
+                , "   },"
+                , "   \"ShipTo\": {"
+                , "    \"Name\": \"ship\","
+                , "    \"AttentionName\": \"GA\","
+                , "    \"CompanyDisplayableName\": \"GA\","
+                , "    \"TaxIdentificationNumber\": \"1234\","
+                , "    \"Phone\": {"
+                , "     \"Number\": \"1234567890\","
+                , "     \"Extension\": \"12\""
+                , "    },"
+                , "    \"FaxNumber\": \"1234\","
+                , "    \"EMailAddress\": \" \","
+                , "    \"Address\": {"
+                , "     \"AddressLine\": ["
+                , "      \"AddressLine\""
+                , "     ],"
+                , "     \"City\": \"Alpharetta\","
+                , "     \"StateProvinceCode\": \"GA\","
+                , "     \"PostalCode\": \"30005\","
+                , "     \"CountryCode\": \"US\","
+                , "     \"ResidentialAddressIndicator\": \"Y\""
+                , "    }"
+                , "   },"
+                , "   \"ShipFrom\": {"
+                , "    \"Name\": \"ship\","
+                , "    \"AttentionName\": \"GA\","
+                , "    \"CompanyDisplayableName\": \"ShipFrom_CompanyDisplayableName\","
+                , "    \"TaxIdentificationNumber\": \"5555555555\","
+                , "    \"Phone\": {"
+                , "     \"Number\": \"1234567890\","
+                , "     \"Extension\": \"12\""
+                , "    },"
+                , "    \"FaxNumber\": \"5555555555\","
+                , "    \"Address\": {"
+                , "     \"AddressLine\": ["
+                , "      \"AddressLine\""
+                , "     ],"
+                , "     \"City\": \"Alpharetta\","
+                , "     \"StateProvinceCode\": \"GA\","
+                , "     \"PostalCode\": \"30005\","
+                , "     \"CountryCode\": \"US\""
+                , "    },"
+                , "    \"EMailAddress\": \" \""
+                , "   },"
+                , "   \"PaymentInformation\": {"
+                , "    \"ShipmentCharge\": {"
+                , "     \"Type\": \"01\","
+                , "     \"BillShipper\": {"
+                , "      \"AccountNumber\": \"AV6010\""
+                , "     }"
+                , "    }"
+                , "   },"
+                , "   \"Service\": {"
+                , "    \"Code\": \"01\","
+                , "    \"Description\": \"desc\""
+                , "   }"
+                , "  },"
+                , "  \"LabelSpecification\": {"
+                , "   \"LabelImageFormat\": {"
+                , "    \"Code\": \"ZPL\","
+                , "    \"Description\": \"desc\""
+                , "   },"
+                , "   \"HTTPUserAgent\": \"Mozilla/4.5\","
+                , "   \"LabelStockSize\": {"
+                , "    \"Height\": \"6\","
+                , "    \"Width\": \"4\""
+                , "   }"
+                , "  }"
+                , " }"
+                , "}"
+        );
+
+        HashMap<String, String> params = new HashMap<>();
+        params.put("additionaladdressvalidation", "string");
+
+        var query = params.keySet().stream()
+                .map(key -> key + "=" + URLEncoder.encode(params.get(key), StandardCharsets.UTF_8))
+                .collect(Collectors.joining("&"));
+
+        var host = "https://wwwcie.ups.com";
+        var version = "v2403";
+        var pathname = "/api/shipments/" + version + "/ship";
+        var request = HttpRequest.newBuilder()
+                .POST(HttpRequest.BodyPublishers.ofString(payload))
+                .uri(URI.create(host + pathname + '?' + query))
+                .header("Content-Type", "application/json")
+                .header("transId", "string")
+                .header("transactionSrc", "testing")
+                .header("Authorization", "Bearer "+getToken())
+                .build();
+
+        var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        String s = printAsJson(response.body());
+        writer.write(request.headers().toString());
+        writer.println();
+        writer.write("The Response to this api");
+        writer.println();
+        writer.write(s);
+
+        writer.close();
+        var images = extractImageValues(response.body());
+        images.forEach(System.out::println);
+    }
 }
+
+
