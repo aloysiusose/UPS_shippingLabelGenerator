@@ -1,4 +1,7 @@
 HELP.md
+Shipment_label.js
+Shipping_label.jpg
+ShipmentLabelGenerator.zip
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
